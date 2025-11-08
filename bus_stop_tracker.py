@@ -4,6 +4,7 @@ uv run --with requests -- python3 bus_stop_tracker.py
 
 import requests
 import os
+from enum import Enum
 from datetime import datetime
 from zoneinfo import ZoneInfo # Built-in to Python 3.9+
 
@@ -14,7 +15,20 @@ API_KEY = os.getenv('MTA_API_KEY', '966f0407-93de-4c6f-bb59-5814d89e3278')
 # The SIRI Stop Monitoring API endpoint (requesting JSON format)
 API_URL = "http://bustime.mta.info/api/siri/stop-monitoring.json"
 
-def get_next_bus_arrival_times(stop_id: str, bus_id: str, max_distance_in_miles: int = 5):
+
+class BusStop(Enum):
+    ROSSVILLE_CORRELL = 'MTA_203532'
+    VETERANS_BLOOMINGDALE = 'MTA_805173'
+    AVE8_ST42 = 'MTA_401851'
+
+class Bus(Enum):
+    S74 = 'S74'
+    S79 = 'S79'
+    SIM25 = 'SIM25'
+    SIM26 = 'SIM26'
+
+
+def get_next_bus_arrival_times(bus_stop: BusStop, bus_id: Bus, max_distance_in_miles: int = 5):
     """
     Fetches and prints the "minutes away" for all buses
     approaching a specific stop.
@@ -22,7 +36,7 @@ def get_next_bus_arrival_times(stop_id: str, bus_id: str, max_distance_in_miles:
     
     params = {
         'key': API_KEY,
-        'MonitoringRef': stop_id,
+        'MonitoringRef': bus_stop.value,
         'StopMonitoringDetailLevel': 'minimum' # We only need arrival times
     }
     
@@ -33,7 +47,7 @@ def get_next_bus_arrival_times(stop_id: str, bus_id: str, max_distance_in_miles:
         # Get the current time in Eastern Time
         now = datetime.now(ET_TIMEZONE)
 
-        print(f"=== 🚌 Next {bus_id} Buses for Stop {stop_id} ===")
+        print(f"=== 🚌 Next {bus_id.value} Buses for Stop {bus_stop.name} ===")
         print(f"Current Time: {now.strftime('%I:%M:%S %p')}\n")
         
         # Make the GET request to the MTA SIRI API
@@ -46,7 +60,7 @@ def get_next_bus_arrival_times(stop_id: str, bus_id: str, max_distance_in_miles:
         stop_visits = data['Siri']['ServiceDelivery']['StopMonitoringDelivery'][0]['MonitoredStopVisit']
         
         if not stop_visits:
-            print(f"No buses are currently scheduled to arrive at stop {stop_id}.")
+            print(f"No buses are currently scheduled to arrive at stop {bus_stop.value}.")
             return
 
         distinct_buses = set()
@@ -62,7 +76,7 @@ def get_next_bus_arrival_times(stop_id: str, bus_id: str, max_distance_in_miles:
             distance_in_miles = arrival['Extensions']['Distances']['DistanceFromCall'] * 0.000621371
             
             
-            if route_name != bus_id or distance_in_miles >= max_distance_in_miles or (route_name, distance_in_miles) in distinct_buses:
+            if route_name != bus_id.value or distance_in_miles >= max_distance_in_miles or (route_name, distance_in_miles) in distinct_buses:
                 continue
             
             distinct_buses.add((route_name, distance_in_miles))
@@ -107,6 +121,8 @@ if __name__ == "__main__":
         print("Please set your MTA_API_KEY in your environment variables")
         print("or replace 'YOUR_API_KEY' in the script with your actual key.")
     else:
-        get_next_bus_arrival_times('MTA_805173', 'SIM26')
-        get_next_bus_arrival_times('MTA_203532', 'SIM25')
-        get_next_bus_arrival_times('MTA_201106', 'SIM1C')
+        get_next_bus_arrival_times(BusStop.VETERANS_BLOOMINGDALE, Bus.SIM26)
+        get_next_bus_arrival_times(BusStop.ROSSVILLE_CORRELL, Bus.SIM25)
+        get_next_bus_arrival_times(BusStop.AVE8_ST42, Bus.SIM25)
+        get_next_bus_arrival_times(BusStop.AVE8_ST42, Bus.SIM26)
+        get_next_bus_arrival_times(BusStop.ROSSVILLE_CORRELL, Bus.S74)
